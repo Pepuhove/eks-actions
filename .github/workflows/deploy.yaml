@@ -1,14 +1,14 @@
 name: Build, Scan, and Deploy to EKS
+
 on:
   push:
     branches:
       - main
 
 env:
-  AWS_REGION : ${{ vars.AWS_REGION }}
-  EKS_CLUSTER : ${{ vars.EKS_CLUSTER }}
-  ECR_REPOSITORY : ${{ vars.ECR_REPOSITORY }}
-
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
 
 jobs:
   Sonarqube_scanner:
@@ -22,7 +22,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      # Check the Quality Gate status
       - name: SonarQube Quality Gate check
         id: sonarqube-quality-gate-check
         uses: sonarsource/sonarqube-quality-gate-action@master
@@ -30,100 +29,100 @@ jobs:
           pollingTimeoutSec: 600
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }} # Optional
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      - name: "Example show SonarQube Quality Gate Status value"
-        run: echo "The Quality Gate status is ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}"
-    
+      - name: Show Quality Gate Status
+        run: echo "Quality Gate status: ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}"
+
   Build_and_Push:
     runs-on: ubuntu-latest
     needs: Sonarqube_scanner
     steps:
-      - name: upload image to ECR
-  uses: appleboy/docker-ecr-action@master
-  with:
-    access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    registry: ${{ secrets.REGISTRY }}
-    cache_from: ${{ secrets.cache }}
-    repo: ${{ env.ECR_REPOSITORY }}
-    region: ${{ env.AWS_REGION }}
-    tags: latest,${{ github.run_number }}
-    daemon_off: false
-    dockerfile: ./Dockerfile
-    context: ./
+      - uses: actions/checkout@v4
+
+      - name: Build and Push Docker image to ECR
+        uses: appleboy/docker-ecr-action@master
+        with:
+          access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          registry: ${{ secrets.REGISTRY }}
+          repo: ${{ env.ECR_REPOSITORY }}
+          region: ${{ env.AWS_REGION }}
+          tags: latest,${{ github.run_number }}
+          dockerfile: ./Dockerfile
+          context: ./
 
   Trivy_Scan:
     runs-on: ubuntu-latest
     needs: Build_and_Push
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-    
       - uses: actions/checkout@v4
-      - name: Trivy Installation
-        run: |
-            sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-            echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-            sudo apt-get update -y
-            sudo apt-get install -y trivy
 
-      - name: Run Trivy vulnerability scanner
+      - name: Install Trivy
+        run: |
+          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update -y
+          sudo apt-get install -y trivy
+
+      - name: Run Trivy vulnerability scan
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ secrets.REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          format: sarif
+          output: trivy-results.sarif
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
 
-      - name: Upload Trivy scan results to GitHub Security tab
+      - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: trivy-results.sarif
 
-  Deploy-to-EKS:
+  Deploy_to_EKS:
     runs-on: ubuntu-latest
     needs: Trivy_Scan
     steps:
-    - name: Create EKS Cluster
-      uses: bitovi/github-actions-deploy-eks@v0.1.2
-      with:
-        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws_region: ${{ env.AWS_REGION }}
+      - uses: actions/checkout@v4
 
-    - name: Update kubeconfig
-      run: |
-          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
-
-    - name: ECR Login
-      run |
-        kubectl create secret docker-registry ecr-registry \
-        --docker-server=${{ secrets.REGISTRY }} \
-        --docker-username=AWS \
-        --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
-
-    - name: Deploy with Helm
-      uses: rafpe/githubaction_deploy-helm-eks@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS__KEY_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-          cluster-name: ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER }}
+
+      - name: ECR Login for Kubernetes
+        run: |
+          kubectl create secret docker-registry ecr-registry \
+            --docker-server=${{ secrets.REGISTRY }} \
+            --docker-username=AWS \
+            --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
+            || echo "Secret already exists"
+
+      - name: Deploy with Helm
+        uses: rafpe/githubaction_deploy-helm-eks@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          cluster-name: ${{ env.EKS_CLUSTER }}
           config-files: .github/values/dev.yaml
           chart-path: helm/appcharts
           namespace: default
           values: appimage=${{ secrets.REGISTRY }},apptag=${{ github.run_number }}
           name: finance-app
 
-    - name: Show Pods
-      run: kubectl get pod -A
+      - name: Show Pods
+        run: kubectl get pods -A
 
-    - name: Show SVC
-      run: |
-        kubectl get svc
-        kubectl get ingress
+      - name: Show Services and Ingress
+        run: |
+          kubectl get svc
+          kubectl get ingress
