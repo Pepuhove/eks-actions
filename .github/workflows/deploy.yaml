@@ -32,7 +32,8 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Show Quality Gate Status
-        run: echo "Quality Gate status: ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}"
+        run: |
+          echo "Quality Gate status: ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}"
 
   Build_and_Push:
     runs-on: ubuntu-latest
