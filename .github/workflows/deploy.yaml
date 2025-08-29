@@ -107,7 +107,9 @@ jobs:
         chart-path: helm/appcharts
         namespace: default
         values: appimage=${{ secrets.REGISTRY }},apptag=${{ github.run_number }}
-        name: finance-app
+        name: finance-app  # ← KEEP THIS LINE - IT'S REQUIRED!
+        atomic: true
+        timeout: 300s
 
     - name: Create ECR registry secret
       run: |
