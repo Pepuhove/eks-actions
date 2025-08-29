@@ -27,21 +27,22 @@ text
 │ │ ├── deployment.yaml
 │ │ ├── ingress.yaml
 │ │ └── service.yaml
-│ ├── charts/
-│ └── values.yaml
+│ ├── charts/ # Chart dependencies
+│ └── values.yaml # Default chart values
 ├── kubernetes/ # Direct Kubernetes manifests
-│ ├── deployment.yaml
-│ ├── ingress.yaml
-│ └── service.yaml
+│ ├── deployment.yaml # Standalone deployment
+│ ├── ingress.yaml # Standalone ingress
+│ └── service.yaml # Standalone service
 ├── src/ # Frontend application source
-│ ├── css/
-│ ├── fonts/
-│ ├── images/
-│ ├── js/
-│ └── *.html
-└── .github/workflows/ # GitHub Actions workflows
+│ ├── css/ # Stylesheets
+│ ├── fonts/ # Font files
+│ ├── images/ # Image assets
+│ ├── js/ # JavaScript files
+│ └── *.html # HTML pages
+├── .github/workflows/ # GitHub Actions workflows
+├── sonar-project.properties # SonarQube configuration
+└── README.md # This file
 
-text
 
 ## 🚀 Getting Started
 
@@ -55,7 +56,7 @@ text
 ### Environment Setup
 
 1. **Clone the repository**
-   ```bash
+   
    git clone https://github.com/Pepuhove/eks-actions.git
    cd eks-actions
 Configure AWS Credentials
@@ -85,7 +86,7 @@ SONAR_TOKEN
 SONAR_HOST_URL
 
 Manual Deployment
-bash
+
 # Build Docker image
 docker build -t your-registry/finance-app:latest .
 
@@ -175,7 +176,7 @@ Resource utilization
 
 💡 Usage Examples
 Trigger Deployment Manually
-bash
+
 # Push to main branch to trigger automated deployment
 git push origin main
 Check Deployment Status
@@ -184,7 +185,7 @@ kubectl get pods -n default
 kubectl get services
 kubectl get ingress
 View Logs
-bash
+
 kubectl logs -l app=mini-finance
 🚨 Troubleshooting
 Common Issues
@@ -207,7 +208,7 @@ Check ingress controller installation
 Verify values.yaml configuration
 
 Debug Commands
-bash
+
 # Check EKS cluster status
 aws eks describe-cluster --name your-cluster-name
 
