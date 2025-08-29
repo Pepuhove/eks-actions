@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
         - name: mini-finance
-          image: {{ .Values.appimage }}:{{ .Values.apptag}}
+          image: 
           ports:
             - containerPort: 80
