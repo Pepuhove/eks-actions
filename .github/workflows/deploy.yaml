@@ -103,11 +103,15 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
         cluster-name: ${{ env.EKS_CLUSTER }}
-        config-files: .github/values/dev.yaml
         chart-path: helm/appcharts
         namespace: default
-        values: appimage=${{ secrets.REGISTRY }},apptag=${{ github.run_number }}
-        name: finance-app  # ← KEEP THIS LINE - IT'S REQUIRED!
+        values: |
+          appimage=${{ secrets.REGISTRY }}
+          apptag=${{ github.run_number }}
+          replicaCount=2
+          service.type=ClusterIP
+          service.port=80
+        name: finance-app
         atomic: true
         timeout: 300s
 
