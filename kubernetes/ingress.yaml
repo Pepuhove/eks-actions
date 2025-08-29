@@ -3,8 +3,8 @@ kind: Ingress
 metadata:
   name: mini-finance-ingress
   annotations:
-    kubernetes.io/ingress.class: alb      
-    alb.ingress.kubernetes.io/scheme: internet-facing
+    kubernetes.io/ingress.class: false     
+    alb.ingress.kubernetes.io/scheme: false
 spec:
   rules:
     - http:
