@@ -107,18 +107,20 @@ jobs:
             --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
             || echo "Secret already exists"
 
-      - name: Deploy with Helm
-        uses: MartinQuesada/eks-helm-deploy-action@v3
+      - name: Deploy with Helm using established action
+        uses: kodermax/kubectl-helm-aws-eks@v1.0.0
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
           cluster-name: ${{ env.EKS_CLUSTER }}
-          config-files: .github/values/dev.yaml
-          chart-path: helm/appcharts
-          namespace: default
-          values: appimage=${{ secrets.REGISTRY }},apptag=${{ github.run_number }}
-          name: finance-app
+          command: |
+            helm upgrade --install finance-app helm/appcharts \
+              --set appimage=${{ secrets.REGISTRY }} \
+              --set apptag=${{ github.run_number }} \
+              -f .github/values/dev.yaml \
+              --namespace default \
+              --wait
 
       - name: Show Pods
         run: kubectl get pods -A
