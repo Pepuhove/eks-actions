@@ -108,7 +108,7 @@ jobs:
             || echo "Secret already exists"
 
       - name: Deploy with Helm
-        uses: uses: MartinQuesada/eks-helm-deploy-action@v3
+        uses: MartinQuesada/eks-helm-deploy-action@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
