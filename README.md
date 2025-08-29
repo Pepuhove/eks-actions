@@ -25,15 +25,12 @@ text
 │ ├── appcharts/
 
 │ │ ├── Chart.yaml # Helm chart metadata
-
 │ │ └── templates/
 
 │ │ └── kubernetes/
 
 │ │ ├── deployment.yaml
-
 │ │ ├── ingress.yaml
-
 │ │ └── service.yaml
 
 │ ├── charts/ # Chart dependencies
@@ -43,21 +40,16 @@ text
 ├── kubernetes/ # Direct Kubernetes manifests
 
 │ ├── deployment.yaml # Standalone deployment
-
 │ ├── ingress.yaml # Standalone ingress
-
 │ └── service.yaml # Standalone service
 
 ├── src/ # Frontend application source
 
 │ ├── css/ # Stylesheets
-
 │ ├── fonts/ # Font files
-
 │ ├── images/ # Image assets
 
 │ ├── js/ # JavaScript files
-
 │ └── *.html # HTML pages
 
 ├── .github/workflows/ # GitHub Actions workflows
