@@ -111,6 +111,7 @@ jobs:
           replicaCount=2
           service.type=ClusterIP
           service.port=80
+          ingress.enabled=false 
         name: finance-app
         atomic: true
         timeout: 300s
