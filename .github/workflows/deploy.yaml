@@ -84,49 +84,90 @@ jobs:
       #     sarif_file: trivy-results.sarif
 
   Deploy_to_EKS:
-    runs-on: ubuntu-latest
-    needs: Trivy_Scan
-    steps:
-      - uses: actions/checkout@v4
+  runs-on: ubuntu-latest
+  needs: Trivy_Scan
+  steps:
+    - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
 
-      - name: Update kubeconfig
-        run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER }}
+    - name: Update kubeconfig
+      run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER }}
 
-      - name: ECR Login for Kubernetes
-        run: |
-          kubectl create secret docker-registry ecr-registry \
-            --docker-server=${{ secrets.REGISTRY }} \
-            --docker-username=AWS \
-            --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
-            || echo "Secret already exists"
+    - name: Install kubectl
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+        kubectl version --client
 
-      - name: Deploy with Helm using established action
-        uses: kodermax/kubectl-helm-aws-eks@v1.0.0
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-          cluster-name: ${{ env.EKS_CLUSTER }}
-          command: |
-            helm upgrade --install finance-app helm/appcharts \
-              --set appimage=${{ secrets.REGISTRY }} \
-              --set apptag=${{ github.run_number }} \
-              -f .github/values/dev.yaml \
-              --namespace default \
-              --wait
+    - name: Install Helm
+      run: |
+        curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        chmod 700 get_helm.sh
+        ./get_helm.sh
+        helm version
 
-      - name: Show Pods
-        run: kubectl get pods -A
+    - name: Create ECR registry secret
+      run: |
+        # Delete existing secret if it exists
+        kubectl delete secret ecr-registry --ignore-not-found
+        # Create new secret
+        kubectl create secret docker-registry ecr-registry \
+          --docker-server=${{ secrets.REGISTRY }} \
+          --docker-username=AWS \
+          --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
 
-      - name: Show Services and Ingress
-        run: |
-          kubectl get svc
-          kubectl get ingress
-# hello pepu
+    - name: Verify Helm chart structure
+      run: |
+        echo "Checking Helm chart structure..."
+        if [ ! -d "helm/appcharts" ]; then
+          echo "ERROR: helm/appcharts directory not found!"
+          echo "Current directory structure:"
+          ls -la
+          echo "Helm directory:"
+          ls -la helm/ 2>/dev/null || echo "helm directory does not exist"
+          exit 1
+        fi
+        echo "Helm chart contents:"
+        ls -la helm/appcharts/
+
+    - name: Deploy application with Helm
+      run: |
+        # Check if values file exists
+        if [ ! -f ".github/values/dev.yaml" ]; then
+          echo "WARNING: .github/values/dev.yaml not found, deploying without custom values"
+          VALUES_ARG=""
+        else
+          VALUES_ARG="-f .github/values/dev.yaml"
+        fi
+
+        helm upgrade --install finance-app helm/appcharts \
+          --set appimage=${{ secrets.REGISTRY }} \
+          --set apptag=${{ github.run_number }} \
+          $VALUES_ARG \
+          --namespace default \
+          --wait --timeout 300s
+
+    - name: Verify deployment
+      run: |
+        echo "Waiting for deployment to be ready..."
+        timeout 300s bash -c 'until kubectl rollout status deployment/finance-app --namespace default --timeout=60s 2>/dev/null; do echo "Still waiting..."; sleep 10; done'
+        echo "Deployment successful!"
+
+    - name: Show deployment status
+      run: |
+        echo "=== Cluster Status ==="
+        kubectl get nodes
+        echo "=== Deployments ==="
+        kubectl get deployments -A
+        echo "=== Services ==="
+        kubectl get svc -A
+        echo "=== Pods ==="
+        kubectl get pods -A
+        echo "=== Ingress ==="
+        kubectl get ingress -A || echo "No ingress resources found"
