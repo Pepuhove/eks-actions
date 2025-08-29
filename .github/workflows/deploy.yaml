@@ -137,4 +137,4 @@ jobs:
         kubectl get pods -A
         echo "=== Ingress ==="
         kubectl get ingress -A || echo "No ingress resources found"
-
+# 
