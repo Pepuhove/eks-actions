@@ -1,9 +1,9 @@
 name: Build, Scan, and Deploy to EKS
 
 on:
-  push:
-    branches:
-      - main
+  # push:
+  #   branches:
+  #     - main
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
